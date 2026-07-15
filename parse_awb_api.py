@@ -161,8 +161,8 @@ def parse_head_text(head_text):
 
 
 def guess_komplexitaet(lemma):
-    if '-' in lemma or len(lemma) >= 12:
-        return 'komplex'
+    if '-' in lemma or len(lemma) >= 10:
+        return ''
     return 'simplex'
 
 
