@@ -24,6 +24,7 @@ import csv
 import json
 import os
 import sys
+import html
 import urllib.request
 
 API_BASE = "https://awb-api.saw-leipzig.de/dictionaries/AWB"
@@ -84,6 +85,11 @@ def reconstruct_entry(words):
     for w in words:
         et = w.get('elementtype', '') or ''
         word = w.get('word', '') or ''
+        # Die API liefert Sonderzeichen als HTML-Entitäten (z.B. "&#x00e2;"
+        # für "â", "&#x2014;" für "—") - hier dekodieren wir sie zu echten
+        # Unicode-Zeichen.
+        if '&' in word:
+            word = html.unescape(word)
 
         if et == 'lemma':
             lemma_parts.append(word)
