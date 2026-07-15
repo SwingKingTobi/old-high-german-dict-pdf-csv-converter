@@ -67,6 +67,14 @@ def load_article_from_file(path):
 IGNORED_BLOCK_PREFIXES = ('kommentarblock',)
 
 
+# elementtypes, deren "word"-Feld nur ein UI-Hyperlink-Label ist (Verweis auf
+# ein anderes Wörterbuch wie Lexer, MWB, DWB, oder auf einen anderen AWB-
+# Artikel) und NICHT im gedruckten Wörterbuchtext erscheint. Diese Wörter
+# dürfen nicht in full_text landen, sonst kleben sie an das nächste Wort
+# (z.B. "MWBaffe" statt "affe", "Lexerâbandrôt" statt "âbandrôt").
+LINK_LABEL_ELEMENTTYPES = {'linkstart', 'idlinkstart'}
+
+
 def reconstruct_entry(words):
     """
     Baut aus der Token-Liste:
@@ -90,6 +98,12 @@ def reconstruct_entry(words):
         # Unicode-Zeichen.
         if '&' in word:
             word = html.unescape(word)
+
+        if et in LINK_LABEL_ELEMENTTYPES:
+            # Nur das Link-Label selbst überspringen (z.B. "MWB", "Lexer",
+            # "AWB") - Start-/Endmarker trotzdem normal verarbeiten, damit
+            # eine evtl. offene Blockklammer nicht durcheinanderkommt.
+            word = ''
 
         if et == 'lemma':
             lemma_parts.append(word)
@@ -120,11 +134,28 @@ def reconstruct_entry(words):
 
 
 def parse_head_text(head_text):
-    """Extrahiert mhd./nhd. Übersetzung aus dem rekonstruierten Kopftext."""
-    info = {'Mhd_Lemma': '', 'Nhd_UES': ''}
+    """
+    Extrahiert mhd./nhd. Übersetzung aus dem rekonstruierten Kopftext.
+    Trennt dabei auch eine evtl. vorhandene mhd.-Flexion ab, die direkt
+    hinter dem mhd.-Wort steht (z.B. "mhd. âbandrôt st. m. n., nhd. ...").
+    Diese Flexion ist nicht immer vorhanden.
+    """
+    info = {'Mhd_Lemma': '', 'mhd_Flexion': '', 'Nhd_UES': ''}
     m = re.search(r'mhd\.\s*(?P<mhd>.*?)\s*nhd\.\s*(?P<nhd>[^;]+)', head_text)
     if m:
-        info['Mhd_Lemma'] = (m.group('mhd') or '').strip().rstrip(',').strip()
+        mhd_full = (m.group('mhd') or '').strip()
+        if mhd_full.endswith(','):
+            mhd_full = mhd_full[:-1].strip()
+        if mhd_full:
+            # Wort + optionale Flexion, z.B. "âbandrôt st. m. n."
+            wm = re.match(
+                r'^(?P<word>\S+)(?:\s+(?P<flex>(?:[a-zäöüß]{1,7}\.\s*)+))?$',
+                mhd_full)
+            if wm:
+                info['Mhd_Lemma'] = wm.group('word')
+                info['mhd_Flexion'] = (wm.group('flex') or '').strip()
+            else:
+                info['Mhd_Lemma'] = mhd_full
         info['Nhd_UES'] = m.group('nhd').strip()
     return info
 
@@ -265,7 +296,7 @@ def parse_article(words):
             'Flexion': flexion,
             'Komplexität': guess_komplexitaet(lemma),
             'Mhd_Lemma': head_info['Mhd_Lemma'],
-            'mhd_Flexion': '',
+            'mhd_Flexion': head_info['mhd_Flexion'],
             'Nhd_UES': head_info['Nhd_UES'],
             'Token': tr['Token'],
             'Kasus_token': tr['Kasus_token'],
