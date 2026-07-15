@@ -161,8 +161,8 @@ def parse_head_text(head_text):
 
 
 def guess_komplexitaet(lemma):
-    if '-' in lemma or len(lemma) >= 10:
-        return ''
+    if '-' in lemma or len(lemma) >= 12:
+        return 'komplex'
     return 'simplex'
 
 
@@ -354,4 +354,3 @@ if __name__ == '__main__':
     else:
         print("Nutzung: python3 parse_awb_api.py FORMID [FORMID ...]")
         print("Beispiel: python3 parse_awb_api.py A00356 A00358")
-
